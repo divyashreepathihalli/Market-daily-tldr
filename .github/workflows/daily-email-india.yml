@@ -36,8 +36,8 @@ jobs:
       - name: Set India focus env and subject prefix
         run: |
           echo "FOCUS_MARKET=India (NSE/BSE, RBI, INR, SEBI, NIFTY/BANK NIFTY, major Indian corporates)" >> .env
-          # Optionally tweak subject prefix for India
-          if ! grep -q '^SUBJECT_PREFIX=' .env; then echo 'SUBJECT_PREFIX=Market Daily TL;DR (India)' >> .env; fi
+          sed -i '""' -e '/^SUBJECT_PREFIX=/d' .env || true
+          echo 'SUBJECT_PREFIX=Market Daily TL;DR (India)' >> .env
 
       - name: Send daily email (India)
         run: |
