@@ -1,0 +1,44 @@
+name: Market Daily Email (India)
+
+on:
+  schedule:
+    - cron: '30 0 * * *'  # 06:00 IST (UTC+5:30)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  send-email-india:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Write .env from secret (reuse USA secret)
+        env:
+          DAILY_TLDR_ENV: ${{ secrets.DAILY_TLDR_ENV }}
+        run: |
+          printf '%s' "$DAILY_TLDR_ENV" > .env
+          chmod 600 .env
+
+      - name: Set India focus env and subject prefix
+        run: |
+          echo "FOCUS_MARKET=India (NSE/BSE, RBI, INR, SEBI, NIFTY/BANK NIFTY, major Indian corporates)" >> .env
+          # Optionally tweak subject prefix for India
+          if ! grep -q '^SUBJECT_PREFIX=' .env; then echo 'SUBJECT_PREFIX=Market Daily TL;DR (India)' >> .env; fi
+
+      - name: Send daily email (India)
+        run: |
+          python daily_emailer.py 

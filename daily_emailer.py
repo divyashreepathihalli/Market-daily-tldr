@@ -57,6 +57,17 @@ def load_recipients(args: argparse.Namespace) -> List[str]:
     return unique
 
 
+def build_focus_context() -> str:
+    focus = (os.getenv("FOCUS_MARKET") or "").strip()
+    if not focus:
+        return ""
+    # Provide strong guidance to focus regionally
+    return (
+        f"Geographic focus: {focus}. Prioritize this market's indices, sectors, major companies/tickers, and policy/regulatory updates. "
+        f"Relate global events to {focus}'s market impact (FX, rates, commodities, flows)."
+    )
+
+
 def call_openai(news_context: str) -> str:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -91,8 +102,9 @@ def main() -> None:
     subject_prefix = args.subject_prefix or os.getenv("SUBJECT_PREFIX", "").strip() or None
     subject = build_email_subject(subject_prefix)
 
-    # Send LLM output as-is (no additional wrapping/validation)
-    body = call_openai(news_context="")
+    # Inject optional geographic focus via context
+    focus_ctx = build_focus_context()
+    body = call_openai(news_context=focus_ctx)
 
     if args.dry_run:
         print(f"SUBJECT: {subject}")

@@ -1,4 +1,4 @@
-name: Market Daily Email
+name: Market Daily Email (USA)
 
 on:
   schedule:
@@ -41,6 +41,11 @@ jobs:
         run: |
           printf '%s' "$DAILY_TLDR_ENV" > .env
           chmod 600 .env
+
+      - name: Set USA focus env
+        if: steps.timecheck.outputs.hour == '06'
+        run: |
+          echo "FOCUS_MARKET=United States (S&P 500, Fed, CPI/PPI, USD, UST rates, major US corporates)" >> .env
 
       - name: Send daily email
         if: steps.timecheck.outputs.hour == '06'
