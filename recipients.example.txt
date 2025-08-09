@@ -1,0 +1,3 @@
+investor1@example.com
+investor2@example.com
+team@example.com 
