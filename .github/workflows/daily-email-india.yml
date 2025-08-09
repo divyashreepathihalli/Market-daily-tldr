@@ -35,9 +35,15 @@ jobs:
 
       - name: Set India focus env and subject prefix
         run: |
-          echo "FOCUS_MARKET=India (NSE/BSE, RBI, INR, SEBI, NIFTY/BANK NIFTY, major Indian corporates)" >> .env
-          sed -i '""' -e '/^SUBJECT_PREFIX=/d' .env || true
+          # Ensure newline at end of file before appending
+          tail -c1 .env | read -r _ || echo >> .env
+          # Force India subject prefix (short)
+          sed -i '/^SUBJECT_PREFIX=/d' .env || true
           echo 'SUBJECT_PREFIX=Market Daily TL;DR (India)' >> .env
+          # Append focus market line
+          echo 'FOCUS_MARKET=India (NSE/BSE, RBI, INR, SEBI, NIFTY/BANK NIFTY, major Indian corporates)' >> .env
+          # Safe debug: show focus line only
+          grep -n '^FOCUS_MARKET=' .env || true
 
       - name: Send daily email (India)
         run: |
