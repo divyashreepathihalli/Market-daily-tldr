@@ -3,121 +3,95 @@ Get daily market TLDR
 
 ## Market Daily TL;DR Emailer
 
-A simple Python script that fetches optional news context, queries OpenAI with a finance-focused prompt, and emails the HTML summary to a recipient list.
+A simple Python script that queries OpenAI for a daily market summary and emails the result. Two GitHub Actions workflows are included: one for USA at 6 AM Pacific, and one for India at 6 AM IST.
 
-### Setup
+### 1) Local setup
 
-1. Create and activate a virtual environment (recommended):
-   
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
+- Python 3.11 recommended
+- Create venv and install dependencies:
+  ```bash
+  python3 -m venv .venv
+  source .venv/bin/activate
+  pip install -r requirements.txt
+  ```
 
-2. Copy env template and fill in values:
-   
-   ```bash
-   cp .env.example .env
-   # edit .env
-   ```
+- Create your `.env` (do NOT commit this file):
+  ```ini
+  OPENAI_API_KEY=sk-proj-...
+  GMAIL_USERNAME=you@gmail.com
+  GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
+  EMAIL_FROM_NAME=Market Daily TL;DR
+  # Optional: if empty, defaults to GMAIL_USERNAME
+  EMAIL_FROM_ADDRESS=
+  # Comma-separated recipients
+  DEFAULT_RECIPIENTS=alice@example.com,bob@example.com
+  # Optional custom prefix (workflows force region-specific prefixes)
+  SUBJECT_PREFIX=
+  # Optional: custom disclaimer HTML (if empty, defaults provided)
+  DISCLAIMER_HTML=
+  ```
 
-   Required:
-   - `OPENAI_API_KEY`
-   - Gmail App Password auth:
-     - `GMAIL_USERNAME` (your Gmail address)
-     - `GMAIL_APP_PASSWORD` (create at Google Account → Security → App passwords)
-   - `DEFAULT_RECIPIENTS` (comma-separated)
+- Dry-run without sending:
+  ```bash
+  python3 daily_emailer.py --dry-run
+  ```
 
-   Optional:
-   - `EMAIL_FROM_NAME` (default: Market Daily TL;DR)
-   - `EMAIL_FROM_ADDRESS` (defaults to `GMAIL_USERNAME`)
-   - `NEWSAPI_KEY` to include freshest headlines as context
-   - `SUBJECT_PREFIX`
+- Send for real locally:
+  ```bash
+  python3 daily_emailer.py
+  ```
 
-3. Add recipients, either via `--to`, a file, or `DEFAULT_RECIPIENTS`:
-   
-   ```bash
-   cp recipients.example.txt recipients.txt
-   # edit recipients.txt
-   ```
+### 2) GitHub Actions (production)
 
-### Run once (dry-run)
+Because `.env` files are never committed, the workflows read a single secret that contains your environment variables.
 
-```bash
-python3 daily_emailer.py --recipients recipients.txt --dry-run
-```
+- In your repo, go to Settings → Secrets and variables → Actions → New repository secret
+- Name the secret: `DAILY_TLDR_ENV`
+- Value: paste your `.env` contents (one KEY=VALUE per line), for example:
+  ```ini
+  OPENAI_API_KEY=sk-proj-...
+  GMAIL_USERNAME=you@gmail.com
+  GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
+  EMAIL_FROM_NAME=Market Daily TL;DR
+  EMAIL_FROM_ADDRESS=you@gmail.com
+  DEFAULT_RECIPIENTS=alice@example.com,bob@example.com
+  # Optional
+  SUBJECT_PREFIX=
+  DISCLAIMER_HTML=
+  ```
 
-### Send for real
+The workflows will write this secret to `.env` on the runner and then set region-specific variables as needed.
 
-```bash
-python3 daily_emailer.py --recipients recipients.txt
-```
+### 3) Workflows
 
-### GitHub Actions (single secret)
+- USA: `.github/workflows/daily-email.yml`
+  - Runs every day at 06:00 Pacific (DST-aware via UTC schedules + guard)
+  - Reuses `DAILY_TLDR_ENV`
+  - Forces `SUBJECT_PREFIX=Market Daily TL;DR USA`
+  - Sets `FOCUS_MARKET=United States (...)` to steer the prompt
 
-Create one repository secret named `DAILY_TLDR_ENV` whose value is the full contents of your `.env`, for example:
+- India: `.github/workflows/daily-email-india.yml`
+  - Runs every day at 06:00 IST (cron: `30 0 * * *` UTC)
+  - Reuses `DAILY_TLDR_ENV` (no second secret required)
+  - Forces `SUBJECT_PREFIX=Market Daily TL;DR (India)`
+  - Sets `FOCUS_MARKET=India (...)` to steer the prompt
 
-```
-OPENAI_API_KEY=...
-GMAIL_USERNAME=you@gmail.com
-GMAIL_APP_PASSWORD=abcd abcd abcd abcd
-DEFAULT_RECIPIENTS=alice@example.com,bob@example.com
-EMAIL_FROM_NAME=Market Daily TL;DR
-# Optional
-NEWSAPI_KEY=...
-SUBJECT_PREFIX=[TL;DR]
-```
+### 4) Sending model output as-is
 
-The workflow at `/.github/workflows/daily-email.yml` writes this secret to `.env` and runs daily at 06:00 UTC.
+- The script sends the model’s HTML output as-is. A disclaimer is appended automatically.
+- You can override the disclaimer with `DISCLAIMER_HTML`.
 
-### macOS scheduling (launchd)
+### 5) Running manually from Actions
 
-Create a `plist` at `~/Library/LaunchAgents/com.market.dailytldr.plist`:
+- Go to Actions → select a workflow (USA or India) → Run workflow.
+- Logs will show the region focus line.
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-  <dict>
-    <key>Label</key>
-    <string>com.market.dailytldr</string>
-    <key>ProgramArguments</key>
-    <array>
-      <string>/bin/zsh</string>
-      <string>-lc</string>
-      <string>cd /Users/divyapersonal/Documents/GitHub/Market-daily-tldr && source .venv/bin/activate && python3 daily_emailer.py --recipients recipients.txt</string>
-    </array>
-    <key>StartCalendarInterval</key>
-    <dict>
-      <key>Hour</key>
-      <integer>7</integer>
-      <key>Minute</key>
-      <integer>30</integer>
-    </dict>
-    <key>StandardOutPath</key>
-    <string>/tmp/market-dailytldr.out</string>
-    <key>StandardErrorPath</key>
-    <string>/tmp/market-dailytldr.err</string>
-    <key>EnvironmentVariables</key>
-    <dict>
-      <key>PATH</key>
-      <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
-    </dict>
-    <key>RunAtLoad</key>
-    <true/>
-  </dict>
-</plist>
-```
+### 6) Notes
 
-Load it:
-
-```bash
-launchctl load ~/Library/LaunchAgents/com.market.dailytldr.plist
-```
-
-### Notes
-- Model is hardcoded to `gpt-4o` in `daily_emailer.py`.
-- If `NEWSAPI_KEY` is not set, the model will proceed without fresh headlines.
-- To test formatting without sending, use `--dry-run`.
-- You can also pass recipients inline: `--to alice@example.com,bob@example.com`. 
+- Keep `.env` out of git; `.gitignore` is configured accordingly.
+- To change recipients: update `DEFAULT_RECIPIENTS` locally and in `DAILY_TLDR_ENV` secret.
+- To test region focus locally:
+  ```bash
+  FOCUS_MARKET="United States" python3 daily_emailer.py --dry-run
+  FOCUS_MARKET="India" python3 daily_emailer.py --dry-run
+  ``` 
