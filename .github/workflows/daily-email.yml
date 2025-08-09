@@ -29,13 +29,13 @@ jobs:
           echo "Pacific hour: $(TZ=America/Los_Angeles date +%H)"
 
       - name: Install dependencies
-        if: steps.timecheck.outputs.hour == '06'
+        if: ${{ github.event_name != 'schedule' || steps.timecheck.outputs.hour == '06' }}
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Write .env from secret
-        if: steps.timecheck.outputs.hour == '06'
+        if: ${{ github.event_name != 'schedule' || steps.timecheck.outputs.hour == '06' }}
         env:
           DAILY_TLDR_ENV: ${{ secrets.DAILY_TLDR_ENV }}
         run: |
@@ -43,11 +43,11 @@ jobs:
           chmod 600 .env
 
       - name: Set USA focus env
-        if: steps.timecheck.outputs.hour == '06'
+        if: ${{ github.event_name != 'schedule' || steps.timecheck.outputs.hour == '06' }}
         run: |
           echo "FOCUS_MARKET=United States (S&P 500, Fed, CPI/PPI, USD, UST rates, major US corporates)" >> .env
 
       - name: Send daily email
-        if: steps.timecheck.outputs.hour == '06'
+        if: ${{ github.event_name != 'schedule' || steps.timecheck.outputs.hour == '06' }}
         run: |
           python daily_emailer.py 

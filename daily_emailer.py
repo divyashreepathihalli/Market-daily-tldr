@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from email_providers import send_email
-from templates import PROMPT_TEMPLATE, SYSTEM_INSTRUCTIONS, build_email_subject
+from templates import get_system_instructions, build_email_subject, build_user_prompt
 
 MODEL_NAME = "gpt-4o"
 
@@ -57,17 +57,6 @@ def load_recipients(args: argparse.Namespace) -> List[str]:
     return unique
 
 
-def build_focus_context() -> str:
-    focus = (os.getenv("FOCUS_MARKET") or "").strip()
-    if not focus:
-        return ""
-    # Provide strong guidance to focus regionally
-    return (
-        f"Geographic focus: {focus}. Prioritize this market's indices, sectors, major companies/tickers, and policy/regulatory updates. "
-        f"Relate global events to {focus}'s market impact (FX, rates, commodities, flows)."
-    )
-
-
 def call_openai(news_context: str) -> str:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -75,13 +64,15 @@ def call_openai(news_context: str) -> str:
 
     client = OpenAI(api_key=api_key)
 
-    prompt = PROMPT_TEMPLATE.format(news_context=news_context or "")
+    focus = (os.getenv("FOCUS_MARKET") or "").strip()
+    system_msg = get_system_instructions(focus)
+    user_msg = build_user_prompt(news_context, focus)
 
     completion = client.chat.completions.create(
         model=get_model_name(),
         messages=[
-            {"role": "system", "content": SYSTEM_INSTRUCTIONS},
-            {"role": "user", "content": prompt},
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_msg},
         ],
         temperature=0.2,
         max_tokens=1200,
@@ -93,6 +84,16 @@ def call_openai(news_context: str) -> str:
     return content
 
 
+def build_focus_context() -> str:
+    focus = (os.getenv("FOCUS_MARKET") or "").strip()
+    if not focus:
+        return ""
+    return (
+        f"Geographic focus: {focus}. Prioritize this market's indices, sectors, major companies/tickers, and policy/regulatory updates. "
+        f"Relate global events to {focus}'s market impact (FX, rates, commodities, flows)."
+    )
+
+
 def main() -> None:
     load_dotenv(override=False)
 
@@ -102,7 +103,6 @@ def main() -> None:
     subject_prefix = args.subject_prefix or os.getenv("SUBJECT_PREFIX", "").strip() or None
     subject = build_email_subject(subject_prefix)
 
-    # Inject optional geographic focus via context
     focus_ctx = build_focus_context()
     body = call_openai(news_context=focus_ctx)
 
