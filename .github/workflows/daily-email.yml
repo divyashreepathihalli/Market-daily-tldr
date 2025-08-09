@@ -2,7 +2,8 @@ name: Market Daily Email
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # Runs every day at 06:00 UTC
+    - cron: '0 13 * * *'  # 06:00 PDT (UTC-7)
+    - cron: '0 14 * * *'  # 06:00 PST (UTC-8)
   workflow_dispatch: {}
 
 permissions:
@@ -21,12 +22,20 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
+      - name: Compute Pacific hour
+        id: timecheck
+        run: |
+          echo "hour=$(TZ=America/Los_Angeles date +%H)" >> "$GITHUB_OUTPUT"
+          echo "Pacific hour: $(TZ=America/Los_Angeles date +%H)"
+
       - name: Install dependencies
+        if: steps.timecheck.outputs.hour == '06'
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Write .env from secret
+        if: steps.timecheck.outputs.hour == '06'
         env:
           DAILY_TLDR_ENV: ${{ secrets.DAILY_TLDR_ENV }}
         run: |
@@ -34,5 +43,6 @@ jobs:
           chmod 600 .env
 
       - name: Send daily email
+        if: steps.timecheck.outputs.hour == '06'
         run: |
           python daily_emailer.py 
