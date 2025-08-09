@@ -94,6 +94,25 @@ def build_focus_context() -> str:
     )
 
 
+def _default_disclaimer() -> str:
+    return (
+        "<hr style=\"border:none;border-top:1px solid #eee;margin:16px 0;\">"
+        "<p style=\"font-size:12px;color:#666;\">"
+        "This email is for informational purposes only and does not constitute financial advice. "
+        "No warranty is made as to accuracy or completeness. Investing involves risk, including loss of principal."
+        "</p>"
+    )
+
+
+def _inject_disclaimer(html_body: str) -> str:
+    disclaimer = os.getenv("DISCLAIMER_HTML") or _default_disclaimer()
+    # Insert before </body> if present (case-insensitive); else append
+    pattern = re.compile(r"</body>", re.IGNORECASE)
+    if pattern.search(html_body):
+        return pattern.sub(disclaimer + "</body>", html_body, count=1)
+    return html_body + disclaimer
+
+
 def main() -> None:
     load_dotenv(override=False)
 
@@ -105,11 +124,12 @@ def main() -> None:
 
     focus_ctx = build_focus_context()
     body = call_openai(news_context=focus_ctx)
+    body_with_disclaimer = _inject_disclaimer(body)
 
     if args.dry_run:
         print(f"SUBJECT: {subject}")
         print("RECIPIENTS:", ", ".join(recipients))
-        print(body)
+        print(body_with_disclaimer)
         return
 
     from_address = os.getenv("EMAIL_FROM_ADDRESS") or os.getenv("GMAIL_USERNAME")
@@ -120,7 +140,7 @@ def main() -> None:
 
     send_email(
         subject=subject,
-        html_body=body,
+        html_body=body_with_disclaimer,
         recipients=recipients,
         from_address=from_address,
         from_name=from_name,

@@ -1,11 +1,11 @@
 from __future__ import annotations
 from datetime import datetime
 
-PROMPT_BODY_TEMPLATE = (
+PROMPT_USA_BODY = (
     "You are a financial research assistant. Summarize today’s most important news across the following categories, focusing only on information that could influence stock market decisions:\n\n"
-    "Political News – Include global and domestic political developments, elections, new legislation, regulatory actions, and geopolitical tensions that could impact markets.\n\n"
+    "Political News – Include global and U.S. political developments, elections, new legislation, regulatory actions, and geopolitical tensions that could impact markets.\n\n"
     "World News – Cover major events such as conflicts, treaties, economic crises, trade agreements, natural disasters, and significant policy changes in other countries.\n\n"
-    "{domestic_label} – Include domestic economic data releases, central bank announcements, inflation reports, consumer sentiment, unemployment data, and major policy changes.\n\n"
+    "U.S. News – Include domestic economic data releases, Fed announcements, inflation reports, consumer sentiment, unemployment data, and major policy changes.\n\n"
     "Technology News – Summarize breakthroughs, product launches, mergers/acquisitions, cybersecurity incidents, AI developments, and semiconductor industry updates.\n\n"
     "Trending Infrastructure & Energy News – Include large-scale construction projects, renewable energy investments, oil & gas developments, transportation initiatives, and related government contracts.\n\n"
     "Market-Relevant Trends – Highlight emerging consumer behavior shifts, new market opportunities, or major corporate earnings that could influence sectors.\n\n"
@@ -16,26 +16,37 @@ PROMPT_BODY_TEMPLATE = (
     "End with a brief overall sentiment summary (Bullish/Bearish/Neutral) and list 3–5 sectors or tickers that might be most affected today."
 )
 
+PROMPT_INDIA_BODY = (
+    "You are a financial research assistant. Summarize today’s most important India-focused news across the following categories, focusing only on information that could influence stock market decisions:\n\n"
+    "Political News (India) – Include national political developments, new bills or amendments, policy changes, trade negotiations, election updates, and geopolitical tensions involving India.\n\n"
+    "World News Relevant to India – Summarize major global events such as oil price changes, foreign investment policies, trade agreements, sanctions, global economic shifts, and geopolitical developments that could impact Indian markets.\n\n"
+    "Indian Economy & Domestic News – Cover RBI announcements, monetary policy updates, GDP growth figures, inflation rates, unemployment data, industrial production, foreign exchange reserves, and major government initiatives.\n\n"
+    "Technology & Startup News (India) – Include IPOs, mergers & acquisitions, funding rounds, government tech policies, AI and semiconductor initiatives, and cybersecurity incidents relevant to Indian tech firms.\n\n"
+    "Infrastructure, Energy & Manufacturing News – Summarize developments in renewable energy, oil & gas, transport infrastructure, large public-private partnership projects, real estate, and manufacturing sector trends.\n\n"
+    "Sector-Specific Corporate News – Highlight major earnings, expansion plans, regulatory approvals, or product launches by companies listed on NSE/BSE.\n\n"
+    "For each category, provide:\n\n"
+    "Headline (short and clear)\n\n"
+    "1–3 sentence summary\n\n"
+    "Potential market impact (Bullish, Bearish, Neutral) with reasoning\n\n"
+    "End with:\n\n"
+    "Overall market sentiment (Bullish/Bearish/Neutral)\n\n"
+    "Top 3–5 sectors or specific NSE/BSE tickers likely to be most affected today"
+)
+
 SYSTEM_INSTRUCTIONS_BASE = (
     "You are a precise financial research assistant. If no external context is provided, use your internal knowledge to provide concrete, non-placeholder insights for every category.\n"
-    "Never include placeholders like 'Summary goes here', 'Reasoning goes here', or template scaffolding.\n"
-    "Integrate not only today's events but also relevant medium/long-term trend context (e.g., ongoing policy regimes, economic cycles, multi-quarter earnings patterns, AI adoption curves).\n"
-    "For Technology, provide extra detail (AI, semiconductors/GPUs, cloud, software, cybersecurity, product launches, M&A, regulatory). Mention specific firms or tickers where appropriate without fabricating.\n"
-    "Include at least one named entity (company, policymaker, country, or ticker) per category when appropriate.\n"
     "Do not wrap the response in Markdown or code fences of any kind. Output direct HTML only.\n"
     "Produce clean, email-ready HTML with <h2>/<h3>/<p>/<ul>/<li> tags, no external CSS."
 )
 
 SYSTEM_INSTRUCTIONS_USA = (
     SYSTEM_INSTRUCTIONS_BASE
-    + "\nCenter ALL sections on the United States market: S&P 500, Dow, Nasdaq, major US sectors, USD, UST yields, Fed/FOMC, CPI/PCE, SEC/FTC/DOJ, and major US companies/tickers.\n"
-    + "Only mention non-US developments if explicitly tied to US market impact (FX, rates, supply chains, earnings)."
+    + "\nCenter ALL sections on the United States market: S&P 500, Dow, Nasdaq, major US sectors, USD, UST yields, Fed/FOMC, CPI/PCE, SEC/FTC/DOJ, and major US companies/tickers."
 )
 
 SYSTEM_INSTRUCTIONS_INDIA = (
     SYSTEM_INSTRUCTIONS_BASE
-    + "\nCenter ALL sections on India: NIFTY 50, NIFTY BANK, NSE/BSE sectors, INR, G-Sec yields, RBI/MPC, CPI/WPI, SEBI/MCA/GST, and major Indian companies/tickers (e.g., RELIANCE, TCS, INFY, HDFCBANK, ICICIBANK, HINDUNILVR).\n"
-    + "Only mention non-India developments if explicitly tied to Indian market impact (FX, rates, commodities, trade flows, sector earnings)."
+    + "\nCenter ALL sections on India: NIFTY 50, NIFTY BANK, NSE/BSE sectors, INR, G-Sec yields, RBI/MPC, CPI/WPI, SEBI/MCA/GST, and major Indian companies/tickers."
 )
 
 PROMPT_TEMPLATE = (
@@ -44,7 +55,6 @@ PROMPT_TEMPLATE = (
     "</context>\n\n"
     "<task>\n"
     "{prompt_body}\n"
-    "Do not include any placeholders or template filler. Provide concrete content for every category.\n"
     "Output strictly as HTML with clear sections per category and an overall sentiment section at the end.\n"
     "</task>\n"
 )
@@ -64,26 +74,18 @@ def get_system_instructions(focus_market: str | None) -> str:
     fm = focus_market.lower()
     if "india" in fm:
         return SYSTEM_INSTRUCTIONS_INDIA
-    if "united states" in fm or "u.s." in fm or "us " in fm or fm.endswith(" us"):
+    if "united states" in fm or "u.s." in fm or "usa" in fm or "us" == fm or fm.endswith(" us"):
         return SYSTEM_INSTRUCTIONS_USA
     return SYSTEM_INSTRUCTIONS_BASE
 
 
-def resolve_domestic_label(focus_market: str | None) -> str:
-    if not focus_market:
-        return "Domestic News"
-    fm = focus_market.lower()
-    if "india" in fm:
-        return "India News"
-    if "united states" in fm or "u.s." in fm or "usa" in fm or "us" == fm:
-        return "U.S. News"
-    return "Domestic News"
-
-
 def build_user_prompt(news_context: str, focus_market: str | None) -> str:
-    domestic_label = resolve_domestic_label(focus_market)
-    prompt_body = PROMPT_BODY_TEMPLATE.format(domestic_label=domestic_label)
-    return PROMPT_TEMPLATE.format(news_context=news_context or "", prompt_body=prompt_body)
+    fm = (focus_market or "").lower()
+    if "india" in fm:
+        body = PROMPT_INDIA_BODY
+    else:
+        body = PROMPT_USA_BODY
+    return PROMPT_TEMPLATE.format(news_context=news_context or "", prompt_body=body)
 
 
 EMAIL_HTML_SHELL = """

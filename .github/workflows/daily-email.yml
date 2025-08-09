@@ -42,10 +42,16 @@ jobs:
           printf '%s' "$DAILY_TLDR_ENV" > .env
           chmod 600 .env
 
-      - name: Set USA focus env
+      - name: Set USA subject prefix and focus
         if: ${{ github.event_name != 'schedule' || steps.timecheck.outputs.hour == '06' }}
         run: |
-          echo "FOCUS_MARKET=United States (S&P 500, Fed, CPI/PPI, USD, UST rates, major US corporates)" >> .env
+          # Ensure newline at end of file before appending
+          tail -c1 .env | read -r _ || echo >> .env
+          # Normalize subject prefix to short USA form
+          sed -i '""' -e '/^SUBJECT_PREFIX=/d' .env || true
+          echo 'SUBJECT_PREFIX=Market Daily TL;DR USA' >> .env
+          # Append focus market on its own line
+          echo 'FOCUS_MARKET=United States (S&P 500, Fed, CPI/PPI, USD, UST rates, major US corporates)' >> .env
 
       - name: Send daily email
         if: ${{ github.event_name != 'schedule' || steps.timecheck.outputs.hour == '06' }}
