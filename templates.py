@@ -80,12 +80,22 @@ def get_system_instructions(focus_market: str | None) -> str:
 
 
 def build_user_prompt(news_context: str, focus_market: str | None) -> str:
+    # Get current date to provide context for "today"
+    current_date = datetime.now().strftime("%A, %B %d, %Y")
+    
     fm = (focus_market or "").lower()
     if "india" in fm:
         body = PROMPT_INDIA_BODY
     else:
         body = PROMPT_USA_BODY
-    return PROMPT_TEMPLATE.format(news_context=news_context or "", prompt_body=body)
+    
+    # Add current date context at the beginning of the prompt
+    date_context = f"Current date: {current_date}\n\n"
+    
+    return PROMPT_TEMPLATE.format(
+        news_context=date_context + (news_context or ""), 
+        prompt_body=body
+    )
 
 
 EMAIL_HTML_SHELL = """
