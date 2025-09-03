@@ -62,10 +62,9 @@ PROMPT_TEMPLATE = (
 
 def build_email_subject(subject_prefix: str | None = None) -> str:
     today = datetime.now().strftime("%Y-%m-%d")
-    base = f"Market Daily TL;DR — {today}"
     if subject_prefix:
-        return f"{subject_prefix} {base}"
-    return base
+        return f"{subject_prefix} — {today}"
+    return f"Market Daily TL;DR — {today}"
 
 
 def get_system_instructions(focus_market: str | None) -> str:
